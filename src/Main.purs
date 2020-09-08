@@ -3,11 +3,16 @@ module Main where
 import Prelude
 
 import Data.Argonaut.Encode as Argonaut
+import Data.DateTime as DDT
+import Data.DateTime as DT
 import Data.DateTime.ISO as ISO
+import Data.Enum (toEnum)
+import Data.Maybe (Maybe, fromMaybe, maybe)
+import Data.Time.Duration as DTD
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
-import Effect.Now as DT
+import Effect.Now as EDT
 import Foreign as F
 import Network.Wai (Application)
 import Network.Warp.Run (runSettings)
@@ -44,8 +49,20 @@ type Handlers = Handler StartTimeAPI { startTime :: IsoWrapper } :<|> Handler Du
 
 startTimeAPI :: Handler StartTimeAPI { startTime :: IsoWrapper }
 startTimeAPI = do
-    startTime <- liftEffect $ DT.nowDateTime
-    pure { startTime: IsoWrapper $ ISO.ISO startTime }
+    now <- liftEffect $ EDT.nowDateTime
+    let
+        currentTime = DDT.time now
+        currentDate = DDT.date now
+        start = fromMaybe currentTime maybeStart
+        day = if currentTime < start
+                then currentDate
+                else maybe currentDate DDT.date
+                    $ DDT.adjust (DTD.Days 1.0) now
+        startTime = IsoWrapper $ ISO.ISO $ DDT.DateTime day start
+    pure { startTime }
+  where
+    maybeStart :: Maybe DT.Time
+    maybeStart = DT.Time <$> toEnum 23 <*> toEnum 0 <*> toEnum 0 <*> toEnum 0
 
 dummyAPI :: Handler DummyAPI String
 dummyAPI = pure "dummy"
